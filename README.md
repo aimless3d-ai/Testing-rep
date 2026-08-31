@@ -12,6 +12,33 @@ Anzeige exportieren und im Browser veröffentlichen.
 
 ---
 
+## 0. Download
+
+Die fertige Anwendung wird nicht im Repository abgelegt – kompilierte Dateien
+gehören nicht in die Versionsverwaltung. Es gibt zwei Bezugswege:
+
+**Releases (empfohlen, dauerhafter Link):**
+[github.com/aimless3d-ai/Testing-rep/releases/latest](https://github.com/aimless3d-ai/Testing-rep/releases/latest)
+
+| Datei | Beschreibung |
+| --- | --- |
+| `VintedAutoListingTool-Setup.exe` | Installer mit Startmenü-Eintrag |
+| `VintedAutoListingTool-portable.zip` | Entpacken und direkt starten |
+
+Ein Release entsteht durch einen Tag `v*` oder über *Actions → Release → Run
+workflow*.
+
+**Actions-Artefakte (bei jedem Push, 90 Tage haltbar):**
+[Actions → Tests und Windows-Build](https://github.com/aimless3d-ai/Testing-rep/actions/workflows/build.yml)
+→ obersten Lauf öffnen → ganz unten unter *Artifacts*
+`VintedAutoListingTool-Setup` herunterladen. Dafür muss man bei GitHub
+angemeldet sein.
+
+Beim ersten Start warnt Windows SmartScreen, weil die Datei nicht signiert
+ist: *Weitere Informationen* → *Trotzdem ausführen*.
+
+---
+
 ## 1. Schnellstart
 
 ### Fertige Anwendung (empfohlen)

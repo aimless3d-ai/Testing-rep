@@ -1,0 +1,107 @@
+name: Release (EXE und Installer veröffentlichen)
+
+# Erzeugt ein GitHub-Release mit dauerhaftem Download-Link.
+# Auslöser: ein Tag wie v2.0.0 – oder manuell über "Run workflow".
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag/Version für das Release (z. B. v2.0.0)"
+        required: true
+        default: "v2.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Windows-Build und Release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest
+
+      - name: PyInstaller-Build
+        run: |
+          python -m PyInstaller --noconfirm --clean `
+            --distpath packaging/dist --workpath packaging/build `
+            packaging/VintedAutoListingTool.spec
+
+      - name: Build prüfen
+        run: |
+          if (-not (Test-Path "packaging/dist/VintedAutoListingTool/VintedAutoListingTool.exe")) {
+            throw "EXE wurde nicht erzeugt"
+          }
+
+      - name: Inno Setup installieren
+        run: choco install innosetup --no-progress -y
+
+      - name: Installer bauen
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" packaging/installer.iss
+          if (-not (Test-Path "installer_output/VintedAutoListingTool-Setup.exe")) {
+            throw "Installer wurde nicht erzeugt"
+          }
+
+      - name: Portable Version packen
+        run: |
+          Compress-Archive -Path "packaging/dist/VintedAutoListingTool/*" `
+            -DestinationPath "installer_output/VintedAutoListingTool-portable.zip"
+
+      - name: Version bestimmen
+        id: version
+        run: |
+          $tag = "${{ github.event.inputs.tag }}"
+          if (-not $tag) { $tag = "${{ github.ref_name }}" }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Release veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $notes = @"
+          ## Vinted Auto Listing Tool $tag
+
+          **Download für Windows:**
+
+          | Datei | Beschreibung |
+          | --- | --- |
+          | ``VintedAutoListingTool-Setup.exe`` | Installer – normale Installation mit Startmenü-Eintrag |
+          | ``VintedAutoListingTool-portable.zip`` | Portable Version – entpacken und ``VintedAutoListingTool.exe`` starten |
+
+          Python wird nicht benötigt, die Anwendung bringt alles mit.
+
+          Beim ersten Start zeigt Windows SmartScreen eine Warnung, weil die Datei
+          nicht signiert ist: ``Weitere Informationen`` → ``Trotzdem ausführen``.
+
+          Ohne API-Key läuft die App im Offline-Modus. Für die volle KI-Erkennung
+          unter *Einstellungen* einen Anbieter samt Key eintragen.
+          "@
+          if (gh release view $tag 2>$null) {
+            gh release upload $tag `
+              "installer_output/VintedAutoListingTool-Setup.exe" `
+              "installer_output/VintedAutoListingTool-portable.zip" --clobber
+          } else {
+            gh release create $tag `
+              "installer_output/VintedAutoListingTool-Setup.exe" `
+              "installer_output/VintedAutoListingTool-portable.zip" `
+              --title "Vinted Auto Listing Tool $tag" --notes $notes
+          }
